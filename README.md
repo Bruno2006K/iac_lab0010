@@ -218,6 +218,16 @@ Configurar la política de notificación:
 
 Cuando Grafana detecta la anomalía (CPU > 50%), el ciclo no se cierra al *enviar* la alerta, sino cuando el backend de Node.js la recibe, la procesa y genera su propio log estructurado. Si el circuito se completó correctamente, al mismo segundo (o un instante después) de la alerta de Grafana, aparece una línea coloreada en rojo en el visor de logs con la siguiente estructura JSON: "grafana_alert_received".
 
+## Paso 08: Fin.
+Borrar o Detener todo sin borrar los dashboards/alarmas de grafana.
+```bash
+docker compose down
+```
+Borrar o Detener todo incluyendo los dashboards/alarmas de grafana
+```bash
+docker compose down -v
+```
+
 ---
 # Preguntas
 ## 1. ¿Por qué necesitamos Loki además de Prometheus si ya tenemos /metrics?
@@ -233,3 +243,4 @@ Cuando Grafana detecta la anomalía (CPU > 50%), el ciclo no se cierra al *envia
 ## 4. ¿Qué diferencia hay entre el evaluation interval y el pending period de una alarma?
 - Evaluation Interval: Cada cuánto tiempo Grafana revisa la métrica (ej. revisar cada 10 segundos).
 - Pending Period: Tiempo que debe mantenerse la falla para disparar la alarma (ej. esperar 30 segundos estables). Evita falsas alarmas por picos de CPU momentáneos.
+
