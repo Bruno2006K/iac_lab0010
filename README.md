@@ -98,9 +98,10 @@ Crear un nuevo dashboard: **Dashboards → New → New dashboard → Add visuali
     Este codigo promql falló, porque en entornos como Docker o Kubernetes dentro de WSL, los nombres de los contenedores suelen guardarse con prefijos o sufijos automáticos (por ejemplo, iac-observabilidad-lab-backend-1). Al buscar la coincidencia exacta name="lab-backend", Prometheus no encontró absolutamente nada, devolvió un valor vacío y Grafana mostró la gráfica en blanco (No data).
     - Correcion hecha:
     ```promql
-    sum(rate(container_cpu_usage_seconds_total[1m])) by (name) * 100
+    rate(backend_process_cpu_seconds_total{job="backend"}[1m]) * 100
     ```
-    Este codigo corregido, le pide a Prometheus "Trae las métricas de todos los contenedores que existan, y luego agrúpalos y sepáralos en la gráfica según el nombre (by (name)) que tengan".
+    Como el filtro {job="backend"} te devuelve los datos de la instancia específica de la aplicación backend (un único proceso), la función rate(...)[1m] calcula directamente la velocidad de consumo de CPU de esa aplicación. Solo multiplicas por * 100 para tener el porcentaje y Grafana lo dibuja de inmediato sin conflictos de etiquetas vacías.
+
 - Devuelve el % de CPU del contenedor del backend (100 ≈ un núcleo completo).
 - Tipo de visualización: Time series.
 - Standard options → Unit: Percent (0-100).
