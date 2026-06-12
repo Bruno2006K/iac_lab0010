@@ -171,7 +171,7 @@ Configurar la política de notificación:
 
 1. En Grafana, ir a **Alerting → Notification policies**.
 2. Editar la política por defecto (**Root policy**).
-3. En el campo **Default contact point**, seleccionar `Backend Webhook` y guardar los cambios.
+3. En el campo **Default contact point**, seleccionar `bruno-webhook` y guardar los cambios.
 4. También configurar esto en "alert rules".
 
 ### Resultado
