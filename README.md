@@ -37,6 +37,60 @@ docker compose down -v   # borra también dashboards/alarmas creados
 > por eso fijamos `v3.8.1`. Promtail EOL (2026-03-02); el recolector de logs
 > es Grafana Alloy.
 ---
+# GUIA README
+## PASO 0: Yo tengo la IP para grafana 3000:3000 ocupada por el hecho de que estaba practicando días antes y salía ocupada buscando solo hice ese cambio en el docker-compose.yml a 3002:3000.
+```bash
+  # ----------------------------- Visualización -----------------------------
+  grafana:
+    image: grafana/grafana:12.4.0
+    container_name: lab-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_DEFAULT_THEME=light
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3002:3000"
+    depends_on:
+      - prometheus
+      - loki
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:
+```
+## Paso 01: Levantar el Stack
+Desde la carpeta del proyecto:
+- Para levantar el stack:
+```bash
+docker compose up -d --build
+```
+- Para comprobar que ya esta levantado.
+```bash
+docker compose ps
+```
+Comprueba en el navegador que responden los servicios principales:
+
+| Servicio   | URL                       |
+|------------|---------------------------|
+| Frontend   | http://localhost:8080     |
+| Backend    | http://localhost:3001/metrics |
+| Grafana    | http://localhost:3000     |
+| Prometheus | http://localhost:9090     |
+
+## Paso 02 — Generar tráfico y logs
+Para tener datos que observar:
+1.	Abre el frontend en http://localhost:8080.
+2.	Pulsa varias veces el botón "Saludar (API)". Cada pulsación genera una petición al backend, una métrica y varias líneas de log.
+![alt text](image.png)
+3.	Deja la pestaña abierta unos minutos: las apps también emiten logs simulados de actividad (pedidos, pagos, advertencias y errores) de forma periódica.
+
+## Paso 03 — Verificar las fuentes de datos en Grafana
+
+---
 # Preguntas
 ## 1. ¿Por qué necesitamos Loki además de Prometheus si ya tenemos /metrics?
 - Prometheus: Solo mide números, te dice qué pasa (ej. la CPU subió a 50%).
