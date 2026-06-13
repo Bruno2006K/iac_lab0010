@@ -255,7 +255,7 @@ En los logs de la aplicación llegaron la alerta.
 En los logs de infraestructura también podemos verificar que hayan llegado logs de alerta
 ```json
 {tier="infrastructure"} |= "alert"
-```post
+```
 
 ## Paso 08: Fin.
 Borrar o Detener todo sin borrar los dashboards/alarmas de grafana.
