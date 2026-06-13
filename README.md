@@ -1,4 +1,6 @@
-# Monitoreo
+# Laboratorio de Observabilidad - Bruno Luis Angel Ordoñez Gonzales
+
+## Monitoreo
 
 En este laboratorio exploraremos monitoreo con herramientas disponibles
 
@@ -21,7 +23,8 @@ docker compose ps
 | Grafana    | http://localhost:3002     |
 | Prometheus | http://localhost:9090     |
 
-# Laboratorio de Observabilidad - Bruno Luis Angel Ordoñez Gonzales
+---
+
 ## Paso 00: Correcciones Previas para que funcione el proyecto.
 - El puerto 3000 para Grafana estaba ocupado por una práctica anterior y no se liberaba, así que en docker-compose.yml se cambió el mapeo a 3002:3000.
 ```bash
