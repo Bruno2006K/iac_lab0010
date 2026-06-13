@@ -249,11 +249,11 @@ Configurar la política de notificación:
 
 ### Resultado
 En los logs de la aplicación llegaron la alerta.
-```json
+```
 {tier="application"} | json | method = "POST"
 ```
 En los logs de infraestructura también podemos verificar que hayan llegado logs de alerta
-```json
+```
 {tier="infrastructure"} |= "alert"
 ```
 
