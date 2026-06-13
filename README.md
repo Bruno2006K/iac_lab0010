@@ -3,40 +3,23 @@
 En este laboratorio exploraremos monitoreo con herramientas disponibles
 
 
-## Aplicaciones
+## Comandos principales para su realizacion.
 ```bash
+sudo mount –make-rshared /
 docker compose up -d --build
+docker compose down
+docker compose down -v
+docker ps
+docker compose ps
 ```
+## Puertos.
 
-## Servicios y URLs
-| Servicio       | URL                         | Notas                                  |
-|----------------|-----------------------------|----------------------------------------|
-| Frontend       | http://localhost:8080       | Hello World + botones de tráfico/carga |
-| Backend (API)  | http://localhost:3001       | `/api/hello`, `/metrics`, `/load`      |
-| Grafana        | http://localhost:3000       | admin / admin                          |
-| Prometheus     | http://localhost:9090       | datasource ya provisionado             |
-| Loki           | http://localhost:3100       | datasource ya provisionado             |
-| Alloy (UI)     | http://localhost:12345      | estado del recolector de logs          |
-| cAdvisor       | http://localhost:8081       | métricas por contenedor                |
-| node-exporter  | http://localhost:9100/metrics | métricas del host                    |
-
-## Configuraciones
-- **Datasources** Prometheus y Loki (provisionados automáticamente).
-- Logs etiquetados por Alloy con `tier=application` o `tier=infrastructure`.
-
-## Actividad
-- El **dashboard** (paneles de CPU + logs de app e infra).
-- La **alarma** de CPU > 50%.
-
-## Reset
-```bash
-docker compose down -v   # borra también dashboards/alarmas creados
-```
-
-> Nota de versiones: el tag `prom/prometheus:latest` apunta aún a la rama 2.x (LTS),
-> por eso fijamos `v3.8.1`. Promtail EOL (2026-03-02); el recolector de logs
-> es Grafana Alloy.
----
+| Servicio   | URL                       |
+|------------|---------------------------|
+| Frontend   | http://localhost:8080     |
+| Backend    | http://localhost:3001/metrics |
+| Grafana    | http://localhost:3002     |
+| Prometheus | http://localhost:9090     |
 
 # Laboratorio de Observabilidad - Bruno Luis Angel Ordoñez Gonzales
 ## Paso 00: Correcciones Previas para que funcione el proyecto.
@@ -46,12 +29,35 @@ docker compose down -v   # borra también dashboards/alarmas creados
     ports:
       - "3002:3000"
 ```
-Se ejecutó el comando para compartir montajes con los contenedores:
-
+También dado que docker compose el volumen de node export esta mal, borramos “rslave” dejando el volumen en solo ro.
+Antes de la correccion:
 ```bash
-sudo mount –make-rshared /
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: lab-node-exporter
+    command:
+      - "--path.rootfs=/host"
+    pid: host
+    volumes:
+      - /:/host:ro, rslave
+    ports:
+      - "9100:9100"
+    restart: unless-stopped
 ```
-Esto rompe de forma segura el aislamiento por defecto que impide a los contenedores ver discos/carpetas del host (WSL), permitiendo que docker compose up -d --build funcione correctamente.
+Despues de la corrección:
+```bash
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: lab-node-exporter
+    command:
+      - "--path.rootfs=/host"
+    pid: host
+    volumes:
+      - /:/host:ro
+    ports:
+      - "9100:9100"
+    restart: unless-stopped
+```
 
 ## Paso 01 — Levantar el stack
 Para levantar el servicio:
@@ -65,8 +71,6 @@ Verificar en el navegador:
 - Grafana: http://localhost:3002
 - Prometheus: http://localhost:9090
 
-
-
 ## Paso 02 — Generar tráfico y logs
 Abrir el frontend en http://localhost:8080.
 - Pulsar varias veces el botón "Saludar (API)" para generar peticiones, métricas y logs.
@@ -77,7 +81,7 @@ Abrir el frontend en http://localhost:8080.
 
 Las fuentes de datos ya están aprovisionadas como código (no se crean manualmente).
 
-- Entrar a Grafana (http://localhost:3000) con `admin` / `admin`.
+- Entre a Grafana (http://localhost:3002) con `admin` / `admin`.
 - Ir a **Connections → Data sources**.
 - Confirmar que existen **Prometheus** y **Loki**, ambas en estado correcto (botón *Test / Save & test*).
 
@@ -91,17 +95,45 @@ Crear un nuevo dashboard: **Dashboards → New → New dashboard → Add visuali
 
 - Fuente de datos: Prometheus.
 - Consulta PromQL:
-    - Antes:
     ```promql
     sum(rate(container_cpu_usage_seconds_total{name="lab-backend"}[1m])) * 100
     ```
-    Este codigo promql falló, porque en entornos como Docker o Kubernetes dentro de WSL, los nombres de los contenedores suelen guardarse con prefijos o sufijos automáticos (por ejemplo, iac-observabilidad-lab-backend-1). Al buscar la coincidencia exacta name="lab-backend", Prometheus no encontró absolutamente nada, devolvió un valor vacío y Grafana mostró la gráfica en blanco (No data).
-    - Correcion hecha:
-    ```promql
-    rate(backend_process_cpu_seconds_total{job="backend"}[1m]) * 100
-    ```
-    Como el filtro {job="backend"} te devuelve los datos de la instancia específica de la aplicación backend (un único proceso), la función rate(...)[1m] calcula directamente la velocidad de consumo de CPU de esa aplicación. Solo multiplicas por * 100 para tener el porcentaje y Grafana lo dibuja de inmediato sin conflictos de etiquetas vacías.
-
+## Correccion del error con la consulta PromQL:
+La consulta PromQL anterior no funcionaba por lo que la solución a la que se llegó para hacer funcionar cAdvisor correctamente es reemplazar Docker Desktop por Docker Engine nativo dentro de WSL.
+-	Cerramos docker desckop dando click derecho y Quit
+-	Instalamos docker engine en WSL:
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
+sudo service docker start
+```
+-	Verificamos la instalación.
+```bash
+docker --version
+docker compose versión
+```
+-	Cambiar Storage Driver a overlay2: Docker por defecto tiene overlay pero cAdvisor requiere overlay2:
+```bash
+sudo nano /etc/docker/daemon.json
+```
+Pegamos lo siguiente, guarda con `Ctrl+O` → `Enter` → `Ctrl+X`.:
+```json
+{
+  "storage-driver": "overlay2"
+}
+```
+-	Reiniciamos docker
+```bash
+sudo service docker restart
+```
+-	Cerramos y abrimos la terminal, levantamos el stack de wsl 
+```bash
+sudo mount --make-rshared /
+docker compose up -d –build
+```
+- Seguido de esto verificamos el comando en Prometheus en http://localhost:9090
+## Por lo tanto ya debe funcionar siguiendo con los  pasos:
 - Devuelve el % de CPU del contenedor del backend (100 ≈ un núcleo completo).
 - Tipo de visualización: Time series.
 - Standard options → Unit: Percent (0-100).
@@ -179,18 +211,16 @@ Usar Grafana Alerting:
   - Pending period: **30s** (la métrica debe mantenerse sobre 50% durante 30s antes de pasar a Firing, evitando falsas alarmas por picos cortos).
 - Configurar labels y notificaciones:
   - Añadir etiqueta `severity = warning`.
-  - Como contact point, puede dejarse `grafana-default-email` para esta práctica (basta con ver el cambio de estado a Firing).
+  - Como contact point, puede dejarse `empty` osea que este en default para esta práctica (basta con ver el cambio de estado a Firing).
 - Guardar con **Save rule and exit**.
 
 ## Paso 06 — Probar la alarma
 
 - En el frontend (http://localhost:8080) pulsar "Generar carga de CPU (30s)".
-  - Alternativa por terminal: `curl "http://localhost:3001/load?seconds=60"`.
+  - Alternativa por terminal: `curl "http://localhost:3001/load?seconds=30"`.
 - Observar el panel de CPU del backend: debe subir y superar el 50%.
 - Ir a **Alerting → Alert rules** y observar cómo la regla pasa de `Normal → Pending → Firing`.
 - Cuando termine la carga, la métrica baja y la alarma vuelve a `Normal`.
-
-> Tomar una captura del estado **Firing** y del panel con la CPU por encima de 50% (parte del entregable).
 
 ## Paso 07 — Cerrar el ciclo: alarma → log
 
@@ -205,8 +235,7 @@ Pasos:
 3. Name: nombre descriptivo, `bruno-webhook` (Se puede poner cualquier nombre).
 4. Integration: seleccionar **Webhook**.
 5. URL: `http://backend:3001/alerts` (dirección de la red interna de Docker).
-6. HTTP Method: asegurarse de que esté en **POST**.
-7. (Opcional) clic en **Test** para enviar una alerta de prueba al backend, luego **Save contact point**.
+6. Clic en **Test** para enviar una alerta de prueba al backend, luego **Save contact point**.
 
 Configurar la política de notificación:
 
@@ -216,8 +245,14 @@ Configurar la política de notificación:
 4. También configurar esto en "alert rules".
 
 ### Resultado
-
-Cuando Grafana detecta la anomalía (CPU > 50%), el ciclo no se cierra al *enviar* la alerta, sino cuando el backend de Node.js la recibe, la procesa y genera su propio log estructurado. Si el circuito se completó correctamente, al mismo segundo (o un instante después) de la alerta de Grafana, aparece una línea coloreada en rojo en el visor de logs con la siguiente estructura JSON: "grafana_alert_received".
+En los logs de la aplicación llegaron la alerta.
+```json
+{tier="application"} | json | method = "POST"
+```
+En los logs de infraestructura también podemos verificar que hayan llegado logs de alerta
+```json
+{tier="infrastructure"} |= "alert"
+```post
 
 ## Paso 08: Fin.
 Borrar o Detener todo sin borrar los dashboards/alarmas de grafana.
